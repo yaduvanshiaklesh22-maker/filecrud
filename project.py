@@ -1,83 +1,211 @@
-# Smart Village Banking & Offline Transaction System
-# Simple Python Demo Project
+import streamlit as st
+import qrcode
 
-# Local Offline Storage
-offline_transactions = []
+# -----------------------------------
+# SESSION STATE
+# -----------------------------------
 
-# User Balance
-users = {
-    "Aklesh": 5000,
-    "Dharmendra": 3000
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "offline_transactions" not in st.session_state:
+    st.session_state.offline_transactions = []
+
+# USER DATABASE SAVE IN SESSION
+if "users" not in st.session_state:
+
+    st.session_state.users = {
+        "Aklesh": 5000,
+        "Ravi": 3000
+    }
+
+# -----------------------------------
+# LOGIN DATA
+# -----------------------------------
+
+login_data = {
+    "Aklesh": "1234"
 }
 
-# Function to show balance
-def check_balance(user):
-    print(f"{user} Balance = ₹{users[user]}")
+# -----------------------------------
+# TITLE
+# -----------------------------------
 
-# Offline Transaction Function
-def offline_transfer(sender, receiver, amount):
+st.title("Smart Village Banking & Offline Transaction System")
 
-    # Check balance
-    if users[sender] >= amount:
+# -----------------------------------
+# LOGIN PAGE
+# -----------------------------------
 
-        # Save transaction locally
-        transaction = {
-            "sender": sender,
-            "receiver": receiver,
-            "amount": amount,
-            "status": "Pending Sync"
-        }
+if not st.session_state.logged_in:
 
-        offline_transactions.append(transaction)
+    username = st.text_input("Enter Username")
 
-        # Deduct amount locally
-        users[sender] -= amount
+    password = st.text_input(
+        "Enter Password",
+        type="password"
+    )
 
-        print("\nTransaction Saved Offline")
-        print("Waiting for Internet Sync...")
+    if st.button("Login"):
+
+        if username in login_data and login_data[username] == password:
+
+            st.session_state.logged_in = True
+
+            st.success("Login Successful")
+
+        else:
+
+            st.error("Invalid Username or Password")
+
+# -----------------------------------
+# DASHBOARD
+# -----------------------------------
+
+if st.session_state.logged_in:
+
+    st.header("Banking Dashboard")
+
+    # SELECT SENDER
+    sender = st.selectbox(
+        "Select Sender",
+        list(st.session_state.users.keys())
+    )
+
+    # SELECT RECEIVER
+    receiver = st.selectbox(
+        "Select Receiver",
+        list(st.session_state.users.keys())
+    )
+
+    # ENTER AMOUNT
+    amount = st.number_input(
+        "Enter Amount",
+        min_value=1
+    )
+
+    # INTERNET CHECK
+    internet = st.checkbox("Internet Available")
+
+    # -----------------------------------
+    # SEND MONEY
+    # -----------------------------------
+
+    if st.button("Send Money"):
+
+        if sender == receiver:
+
+            st.error(
+                "Sender and Receiver cannot be same"
+            )
+
+        elif st.session_state.users[sender] >= amount:
+
+            # ONLINE TRANSACTION
+            if internet:
+
+                st.session_state.users[sender] -= amount
+
+                st.session_state.users[receiver] += amount
+
+                st.success(
+                    "Transaction Successful"
+                )
+
+            # OFFLINE TRANSACTION
+            else:
+
+                st.session_state.users[sender] -= amount
+
+                transaction = {
+                    "sender": sender,
+                    "receiver": receiver,
+                    "amount": amount,
+                    "status": "Pending"
+                }
+
+                st.session_state.offline_transactions.append(
+                    transaction
+                )
+
+                st.warning(
+                    "Internet Not Available\nTransaction Saved Offline"
+                )
+
+        else:
+
+            st.error("Insufficient Balance")
+
+    # -----------------------------------
+    # SYNC TRANSACTIONS
+    # -----------------------------------
+
+    if st.button("Sync Transactions"):
+
+        for t in st.session_state.offline_transactions:
+
+            st.session_state.users[t["receiver"]] += t["amount"]
+
+            t["status"] = "Completed"
+
+        st.success(
+            "All Offline Transactions Synced"
+        )
+
+        st.session_state.offline_transactions.clear()
+
+    # -----------------------------------
+    # USER BALANCES
+    # -----------------------------------
+
+    st.subheader("User Balances")
+
+    for user, balance in st.session_state.users.items():
+
+        st.write(user, ":", balance)
+
+    # -----------------------------------
+    # OFFLINE HISTORY
+    # -----------------------------------
+
+    st.subheader("Offline Transaction History")
+
+    if st.session_state.offline_transactions:
+
+        for t in st.session_state.offline_transactions:
+
+            st.write(t)
 
     else:
-        print("\nInsufficient Balance")
 
-# Sync Function
-def sync_transactions():
+        st.info(
+            "No Pending Offline Transactions"
+        )
 
-    print("\nInternet Connected...")
-    print("Syncing Transactions...\n")
+    # -----------------------------------
+    # QR CODE
+    # -----------------------------------
 
-    for t in offline_transactions:
+    st.subheader("QR Code Payment")
 
-        receiver = t["receiver"]
-        amount = t["amount"]
+    if st.button("Generate QR Code"):
 
-        # Add money to receiver
-        users[receiver] += amount
+        img = qrcode.make(
+            "Pay To Smart Village Banking"
+        )
 
-        # Update status
-        t["status"] = "Completed"
+        img.save("qr.png")
 
-        print(f"{t['sender']} sent ₹{amount} to {receiver}")
+        st.image("qr.png")
 
-    # Clear transactions after sync
-    offline_transactions.clear()
+    # -----------------------------------
+    # FINGERPRINT
+    # -----------------------------------
 
-    print("\nAll Transactions Synced Successfully")
+    st.subheader("Fingerprint Verification")
 
-# ---------------- MAIN PROGRAM ----------------
+    if st.button("Verify Fingerprint"):
 
-print("SMART VILLAGE BANKING SYSTEM\n")
-
-# Check balance before transfer
-check_balance("Aklesh")
-check_balance("Dharmendra")
-
-# Offline transfer
-offline_transfer("Aklesh", "Dharmendra", 1000)
-
-# Sync when internet available
-sync_transactions()
-
-# Final balance
-print("\nUpdated Balances:")
-check_balance("Aklesh")
-check_balance("Dharmendra")
+        st.success(
+            "Fingerprint Verified Successfully"
+        )
